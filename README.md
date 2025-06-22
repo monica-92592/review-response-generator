@@ -4,13 +4,15 @@ A modern web application that generates professional, contextually appropriate r
 
 ## 🚀 Features
 
-- **AI-Powered Responses**: Generate professional responses using OpenAI's GPT models
+- **AI-Powered Responses**: Generate professional responses using OpenAI's GPT-4 API
 - **Smart Context Analysis**: Automatically detect review sentiment and context
 - **Customizable Tones**: Choose from professional, friendly, formal, casual, or empathetic tones
 - **Business-Specific**: Tailored responses for different business types (restaurant, retail, healthcare, etc.)
 - **Response Length Control**: Generate short, medium, or long responses
 - **Modern UI**: Beautiful, responsive design with excellent user experience
 - **Copy & Export**: Easy copying and management of generated responses
+- **Rate Limiting**: Built-in rate limiting to manage API usage
+- **Error Handling**: Comprehensive error handling and user feedback
 
 ## 🛠️ Tech Stack
 
@@ -35,20 +37,50 @@ npm install
 
 3. Set up environment variables:
 ```bash
-cp .env.example .env.local
+cp env.example .env.local
 ```
 
-Add your OpenAI API key to `.env.local`:
-```
-OPENAI_API_KEY=your_api_key_here
-```
+4. **Configure OpenAI API Key:**
+   - Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+   - Add it to your `.env.local` file:
+   ```
+   OPENAI_API_KEY=sk-your-api-key-here
+   ```
 
-4. Run the development server:
+5. Run the development server:
 ```bash
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## 🔑 OpenAI API Setup
+
+### Getting Your API Key
+
+1. Visit [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Sign in or create an account
+3. Click "Create new secret key"
+4. Copy the generated key (starts with `sk-`)
+5. Add it to your `.env.local` file
+
+### API Usage & Costs
+
+- **Model**: GPT-4 (most capable model)
+- **Cost**: ~$0.03 per 1K tokens (approximately $0.01-0.05 per response)
+- **Rate Limits**: 10 requests per minute, 100 per hour (configurable)
+- **Token Usage**: 100-200 tokens per response depending on length
+
+### Environment Variables
+
+```bash
+# Required
+OPENAI_API_KEY=sk-your-api-key-here
+
+# Optional
+NEXT_PUBLIC_APP_NAME="AI Review Response Generator"
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
 ## 🎯 Usage
 
@@ -65,6 +97,9 @@ npm run dev
 ```
 review-response-generator/
 ├── app/                    # Next.js app directory
+│   ├── api/               # API routes
+│   │   └── generate-response/
+│   │       └── route.ts   # OpenAI API endpoint
 │   ├── globals.css        # Global styles
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Main dashboard page
@@ -76,6 +111,9 @@ review-response-generator/
 │       ├── Input.tsx     # Input fields
 │       ├── Select.tsx    # Dropdown select
 │       └── Badge.tsx     # Status badges
+├── lib/                  # Utility libraries
+│   ├── openai.ts         # OpenAI client & functions
+│   └── utils.ts          # Utility functions
 ├── public/               # Static assets
 └── package.json          # Dependencies and scripts
 ```
@@ -99,6 +137,15 @@ The application uses a consistent design system with:
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
 
+### API Development
+
+The application includes a robust API setup:
+
+- **Rate Limiting**: Built-in rate limiting to prevent API abuse
+- **Error Handling**: Comprehensive error handling for all API scenarios
+- **Validation**: Input validation for all API endpoints
+- **Security**: API key validation and secure request handling
+
 ### Component Development
 
 All UI components are located in `components/ui/` and follow a consistent pattern:
@@ -115,7 +162,8 @@ All UI components are located in `components/ui/` and follow a consistent patter
 
 1. Push your code to GitHub
 2. Connect your repository to Vercel
-3. Add environment variables in Vercel dashboard
+3. Add environment variables in Vercel dashboard:
+   - `OPENAI_API_KEY`: Your OpenAI API key
 4. Deploy automatically
 
 ### Other Platforms
@@ -126,6 +174,8 @@ The app can be deployed to any platform that supports Next.js:
 - Railway
 - DigitalOcean App Platform
 - AWS Amplify
+
+**Important**: Don't forget to set the `OPENAI_API_KEY` environment variable in your deployment platform.
 
 ## 📈 Roadmap
 
@@ -159,7 +209,7 @@ If you have any questions or need help, please:
 
 ## 🙏 Acknowledgments
 
-- OpenAI for providing the GPT API
+- OpenAI for providing the GPT-4 API
 - Next.js team for the amazing framework
 - Tailwind CSS for the utility-first CSS framework
 - Lucide for the beautiful icons

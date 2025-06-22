@@ -35,7 +35,9 @@ export default function Home() {
   const [businessType, setBusinessType] = useState('')
   const [tone, setTone] = useState('')
   const [responseLength, setResponseLength] = useState('')
+  const [aiProvider, setAiProvider] = useState('auto')
   const [generatedResponse, setGeneratedResponse] = useState('')
+  const [usedProvider, setUsedProvider] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -87,6 +89,12 @@ export default function Home() {
     { value: 'long', label: 'Long (3-4 sentences)' }
   ]
 
+  const aiProviders = [
+    { value: 'auto', label: '🤖 Auto (Best Available)' },
+    { value: 'claude', label: '🧠 Claude (Anthropic)' },
+    { value: 'openai', label: '⚡ OpenAI (GPT-4)' }
+  ]
+
   const validateForm = (): boolean => {
     const errors: FormErrors = {}
 
@@ -135,13 +143,30 @@ export default function Home() {
     setError(null)
 
     try {
-      // TODO: Implement AI response generation
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      const mockResponse = `Thank you for your ${rating}-star review! We truly appreciate you taking the time to share your feedback with us. Your experience is incredibly important to us, and we're grateful for your support. We look forward to serving you again soon!`
-      
-      setGeneratedResponse(mockResponse)
+      // Call the API endpoint
+      const response = await fetch('/api/generate-response', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reviewText,
+          rating,
+          businessType,
+          tone,
+          responseLength,
+          provider: aiProvider
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate response')
+      }
+
+      setGeneratedResponse(data.response)
+      setUsedProvider(data.provider || 'unknown')
       setSuccess('Response generated successfully!')
 
       // Add to history
@@ -152,15 +177,27 @@ export default function Home() {
         businessType,
         tone,
         responseLength,
-        response: mockResponse,
+        response: data.response,
         timestamp: new Date()
       }
 
       setResponseHistory(prev => [newHistoryItem, ...prev.slice(0, 9)]) // Keep last 10 items
 
-    } catch (err) {
-      setError('Failed to generate response. Please try again.')
+    } catch (err: any) {
       console.error('Error generating response:', err)
+      
+      // Handle specific error types
+      if (err.message.includes('Rate limit')) {
+        setError('Rate limit exceeded. Please wait a moment and try again.')
+      } else if (err.message.includes('API key')) {
+        setError('API configuration error. Please check your API keys.')
+      } else if (err.message.includes('quota')) {
+        setError('API quota exceeded. Please check your account.')
+      } else if (err.message.includes('timeout')) {
+        setError('Request timed out. Please try again.')
+      } else {
+        setError(err.message || 'Failed to generate response. Please try again.')
+      }
     } finally {
       setIsGenerating(false)
     }
@@ -190,6 +227,28 @@ export default function Home() {
       hour: '2-digit',
       minute: '2-digit'
     }).format(date)
+  }
+
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case 'claude':
+        return '🧠'
+      case 'openai':
+        return '⚡'
+      default:
+        return '🤖'
+    }
+  }
+
+  const getProviderName = (provider: string) => {
+    switch (provider) {
+      case 'claude':
+        return 'Claude'
+      case 'openai':
+        return 'OpenAI'
+      default:
+        return 'AI'
+    }
   }
 
   return (
@@ -285,6 +344,14 @@ export default function Home() {
                     />
                   </div>
 
+                  <Select
+                    label="AI Provider"
+                    options={aiProviders}
+                    value={aiProvider}
+                    onChange={setAiProvider}
+                    placeholder="Select AI provider"
+                  />
+
                   <Button
                     onClick={handleGenerateResponse}
                     loading={isGenerating}
@@ -305,6 +372,7 @@ export default function Home() {
                   <li>• Choose the appropriate tone based on your brand voice</li>
                   <li>• Consider the rating when crafting your response</li>
                   <li>• Keep responses genuine and authentic to your business</li>
+                  <li>• Use "Auto" to let the system choose the best available AI provider</li>
                 </ul>
               </Card>
             </div>
@@ -322,11 +390,18 @@ export default function Home() {
                       <p className="text-sm text-gray-500">Your AI-generated response</p>
                     </div>
                   </div>
-                  {rating && (
-                    <Badge variant={getRatingColor(rating) as any}>
-                      {rating} Star{rating !== '1' ? 's' : ''}
-                    </Badge>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {rating && (
+                      <Badge variant={getRatingColor(rating) as any}>
+                        {rating} Star{rating !== '1' ? 's' : ''}
+                      </Badge>
+                    )}
+                    {usedProvider && (
+                      <Badge variant="info" size="sm">
+                        {getProviderIcon(usedProvider)} {getProviderName(usedProvider)}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 {generatedResponse ? (
