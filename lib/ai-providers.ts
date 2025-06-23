@@ -1,5 +1,11 @@
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
+import {
+  analyzeSentiment,
+  createAdvancedPrompt,
+  validateResponse,
+  ReviewData
+} from './prompt-engineer'
 
 // Initialize AI clients
 const openai = new OpenAI({
@@ -86,7 +92,15 @@ export const generateReviewResponse = async (params: {
   tone: string
   responseLength: string
   provider?: AIProvider
-}): Promise<{ response: string; error?: string; provider?: string }> => {
+  variation?: number
+  toneAdjustments?: {
+    formality?: number
+    empathy?: number
+    enthusiasm?: number
+    professionalism?: number
+  }
+  useTemplate?: string | null
+}): Promise<{ response: string; error?: string; provider?: string; validation?: any }> => {
   try {
     // Check rate limits
     const rateLimitCheck = checkRateLimit()
@@ -94,24 +108,42 @@ export const generateReviewResponse = async (params: {
       return { response: '', error: rateLimitCheck.message }
     }
 
-    const { provider = 'auto' } = params
-
-    // Determine which provider to use
+    const { provider = 'auto', variation = 1, toneAdjustments = {}, useTemplate = null } = params
     const selectedProvider = await selectProvider(provider)
 
+    // Advanced prompt engineering
+    const reviewData: ReviewData = {
+      text: params.reviewText,
+      rating: params.rating,
+      businessType: params.businessType,
+      tone: params.tone,
+      responseLength: params.responseLength,
+      provider: selectedProvider as AIProvider,
+      variation,
+      toneAdjustments,
+      useTemplate
+    }
+    const sentiment = analyzeSentiment(params.reviewText, params.rating)
+    const prompt = createAdvancedPrompt(reviewData)
+
+    let result
     if (selectedProvider === 'openai') {
-      return await generateWithOpenAI(params)
+      result = await generateWithOpenAIAdvanced(prompt)
     } else if (selectedProvider === 'claude') {
-      return await generateWithClaude(params)
+      result = await generateWithClaudeAdvanced(prompt)
     } else {
       return { response: '', error: 'No AI provider available' }
     }
 
+    // Response quality validation
+    const validation = validateResponse(result.response, reviewData, sentiment)
+    return { ...result, validation }
+
   } catch (error: any) {
     console.error('AI Generation Error:', error)
-    return { 
-      response: '', 
-      error: 'Failed to generate response. Please try again.' 
+    return {
+      response: '',
+      error: 'Failed to generate response. Please try again.'
     }
   }
 }
@@ -146,51 +178,25 @@ const selectProvider = async (preference: AIProvider): Promise<string> => {
   return preference
 }
 
-// Generate response using OpenAI
-const generateWithOpenAI = async (params: {
-  reviewText: string
-  rating: string
-  businessType: string
-  tone: string
-  responseLength: string
-}): Promise<{ response: string; error?: string; provider?: string }> => {
+// Generate response using OpenAI with advanced prompt
+const generateWithOpenAIAdvanced = async (prompt: any): Promise<{ response: string; error?: string; provider?: string }> => {
   try {
-    const prompt = createPrompt(params)
-
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o',
       messages: [
-        {
-          role: 'system',
-          content: `You are a professional customer service representative who writes thoughtful, authentic responses to customer reviews. Your responses should be:
-- Appropriate for the business type and industry
-- Match the specified tone (professional, friendly, formal, casual, or empathetic)
-- Address the specific feedback in the review
-- Be the specified length (short: 1-2 sentences, medium: 2-3 sentences, long: 3-4 sentences)
-- Genuine and authentic, not generic
-- Thank the customer for their feedback
-- Show appreciation for their business
-- Encourage future engagement when appropriate`
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
+        { role: 'system', content: prompt.system },
+        { role: 'user', content: prompt.user }
       ],
-      max_tokens: getMaxTokens(params.responseLength),
-      temperature: 0.7,
+      max_tokens: prompt.maxTokens,
+      temperature: prompt.temperature,
       presence_penalty: 0.1,
       frequency_penalty: 0.1,
     })
-
     const response = completion.choices[0]?.message?.content?.trim()
-    
     if (!response) {
       return { response: '', error: 'No response generated from OpenAI' }
     }
-
     return { response, provider: 'openai' }
-
   } catch (error: any) {
     console.error('OpenAI API Error:', error)
     
@@ -218,48 +224,23 @@ const generateWithOpenAI = async (params: {
   }
 }
 
-// Generate response using Claude
-const generateWithClaude = async (params: {
-  reviewText: string
-  rating: string
-  businessType: string
-  tone: string
-  responseLength: string
-}): Promise<{ response: string; error?: string; provider?: string }> => {
+// Generate response using Claude with advanced prompt
+const generateWithClaudeAdvanced = async (prompt: any): Promise<{ response: string; error?: string; provider?: string }> => {
   try {
-    const prompt = createPrompt(params)
-
     const message = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
-      max_tokens: getMaxTokens(params.responseLength),
-      temperature: 0.7,
-      system: `You are a professional customer service representative who writes thoughtful, authentic responses to customer reviews. Your responses should be:
-- Appropriate for the business type and industry
-- Match the specified tone (professional, friendly, formal, casual, or empathetic)
-- Address the specific feedback in the review
-- Be the specified length (short: 1-2 sentences, medium: 2-3 sentences, long: 3-4 sentences)
-- Genuine and authentic, not generic
-- Thank the customer for their feedback
-- Show appreciation for their business
-- Encourage future engagement when appropriate
-
-Always respond with just the review response text, no additional formatting or explanations.`,
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: prompt.maxTokens,
+      temperature: prompt.temperature,
+      system: prompt.system,
       messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
+        { role: 'user', content: prompt.user }
       ]
     })
-
     const response = message.content[0]?.type === 'text' ? message.content[0].text.trim() : ''
-    
     if (!response) {
       return { response: '', error: 'No response generated from Claude' }
     }
-
     return { response, provider: 'claude' }
-
   } catch (error: any) {
     console.error('Claude API Error:', error)
     
@@ -285,81 +266,6 @@ Always respond with just the review response text, no additional formatting or e
       error: 'Claude API error. Please try again.' 
     }
   }
-}
-
-// Create dynamic prompt based on parameters
-const createPrompt = (params: {
-  reviewText: string
-  rating: string
-  businessType: string
-  tone: string
-  responseLength: string
-}): string => {
-  const { reviewText, rating, businessType, tone, responseLength } = params
-  
-  const businessContext = getBusinessContext(businessType)
-  const toneInstructions = getToneInstructions(tone)
-  const lengthInstructions = getLengthInstructions(responseLength)
-  
-  return `Please write a ${tone} response to this ${rating}-star review for a ${businessType} business:
-
-Review: "${reviewText}"
-
-Business Context: ${businessContext}
-Tone: ${toneInstructions}
-Length: ${lengthInstructions}
-
-Write a response that addresses the specific feedback while maintaining the appropriate tone and length.`
-}
-
-// Get business-specific context
-const getBusinessContext = (businessType: string): string => {
-  const contexts: Record<string, string> = {
-    restaurant: 'Restaurant/food service business. Focus on food quality, service, atmosphere, and dining experience.',
-    retail: 'Retail/e-commerce business. Focus on products, customer service, shopping experience, and value.',
-    healthcare: 'Healthcare/medical business. Focus on patient care, professionalism, and medical expertise.',
-    professional: 'Professional services business. Focus on expertise, reliability, and professional standards.',
-    hospitality: 'Hospitality/travel business. Focus on guest experience, accommodations, and service quality.',
-    technology: 'Technology/software business. Focus on product functionality, support, and innovation.',
-    other: 'General business. Focus on customer satisfaction and service quality.'
-  }
-  
-  return contexts[businessType] || contexts.other
-}
-
-// Get tone-specific instructions
-const getToneInstructions = (tone: string): string => {
-  const instructions: Record<string, string> = {
-    professional: 'Use formal, business-appropriate language. Be courteous and professional.',
-    friendly: 'Use warm, approachable language. Be personable and welcoming.',
-    formal: 'Use very formal, corporate language. Be respectful and proper.',
-    casual: 'Use relaxed, conversational language. Be approachable and informal.',
-    empathetic: 'Show understanding and compassion. Acknowledge feelings and concerns.'
-  }
-  
-  return instructions[tone] || instructions.professional
-}
-
-// Get length-specific instructions
-const getLengthInstructions = (length: string): string => {
-  const instructions: Record<string, string> = {
-    short: 'Keep it brief: 1-2 sentences maximum.',
-    medium: 'Moderate length: 2-3 sentences.',
-    long: 'Detailed response: 3-4 sentences.'
-  }
-  
-  return instructions[length] || instructions.medium
-}
-
-// Get max tokens based on response length
-const getMaxTokens = (length: string): number => {
-  const tokenLimits: Record<string, number> = {
-    short: 100,
-    medium: 150,
-    long: 200
-  }
-  
-  return tokenLimits[length] || 150
 }
 
 // Get available providers

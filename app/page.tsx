@@ -1,13 +1,15 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import Header from '@/components/ui/Header'
 import Container from '@/components/ui/Container'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
+import Grid from '@/components/ui/Grid'
+import Stack from '@/components/ui/Stack'
+import Flex from '@/components/ui/Flex'
 import { MessageSquare, Copy, RefreshCw, Star, Zap, AlertCircle, CheckCircle } from 'lucide-react'
 
 interface ResponseHistory {
@@ -19,6 +21,12 @@ interface ResponseHistory {
   responseLength: string
   response: string
   timestamp: Date
+}
+
+interface ResponseVariation {
+  id: number
+  text: string
+  provider: string
 }
 
 interface FormErrors {
@@ -36,8 +44,9 @@ export default function Home() {
   const [tone, setTone] = useState('')
   const [responseLength, setResponseLength] = useState('')
   const [aiProvider, setAiProvider] = useState('auto')
-  const [generatedResponse, setGeneratedResponse] = useState('')
-  const [usedProvider, setUsedProvider] = useState('')
+  const [variations, setVariations] = useState('3')
+  const [responseVariations, setResponseVariations] = useState<ResponseVariation[]>([])
+  const [selectedVariation, setSelectedVariation] = useState<number | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -95,6 +104,14 @@ export default function Home() {
     { value: 'openai', label: '⚡ OpenAI (GPT-4)' }
   ]
 
+  const variationOptions = [
+    { value: '1', label: '1 Variation' },
+    { value: '2', label: '2 Variations' },
+    { value: '3', label: '3 Variations' },
+    { value: '4', label: '4 Variations' },
+    { value: '5', label: '5 Variations' }
+  ]
+
   const validateForm = (): boolean => {
     const errors: FormErrors = {}
 
@@ -130,8 +147,10 @@ export default function Home() {
   }
 
   const handleGenerateResponse = async () => {
-    // Clear previous messages
+    // Clear previous messages and validation
     clearMessages()
+    setResponseVariations([])
+    setSelectedVariation(null)
 
     // Validate form
     if (!validateForm()) {
@@ -140,10 +159,8 @@ export default function Home() {
     }
 
     setIsGenerating(true)
-    setError(null)
 
     try {
-      // Call the API endpoint
       const response = await fetch('/api/generate-response', {
         method: 'POST',
         headers: {
@@ -155,69 +172,63 @@ export default function Home() {
           businessType,
           tone,
           responseLength,
-          provider: aiProvider
+          aiProvider,
+          variations: parseInt(variations),
         }),
       })
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate response')
-      }
-
-      setGeneratedResponse(data.response)
-      setUsedProvider(data.provider || 'unknown')
-      setSuccess('Response generated successfully!')
-
-      // Add to history
-      const newHistoryItem: ResponseHistory = {
-        id: Date.now().toString(),
-        review: reviewText,
-        rating,
-        businessType,
-        tone,
-        responseLength,
-        response: data.response,
-        timestamp: new Date()
-      }
-
-      setResponseHistory(prev => [newHistoryItem, ...prev.slice(0, 9)]) // Keep last 10 items
-
-    } catch (err: any) {
-      console.error('Error generating response:', err)
-      
-      // Handle specific error types
-      if (err.message.includes('Rate limit')) {
-        setError('Rate limit exceeded. Please wait a moment and try again.')
-      } else if (err.message.includes('API key')) {
-        setError('API configuration error. Please check your API keys.')
-      } else if (err.message.includes('quota')) {
-        setError('API quota exceeded. Please check your account.')
-      } else if (err.message.includes('timeout')) {
-        setError('Request timed out. Please try again.')
+      if (data.success) {
+        setResponseVariations(data.variations)
+        setSuccess('Response generated successfully!')
+        
+        // Add to history
+        const newResponse: ResponseHistory = {
+          id: Date.now().toString(),
+          review: reviewText,
+          rating,
+          businessType,
+          tone,
+          responseLength,
+          response: data.variations[0]?.text || '',
+          timestamp: new Date()
+        }
+        setResponseHistory(prev => [newResponse, ...prev.slice(0, 9)]) // Keep last 10
       } else {
-        setError(err.message || 'Failed to generate response. Please try again.')
+        setError(data.error || 'Failed to generate response')
       }
+    } catch (err) {
+      console.error('Error generating response:', err)
+      setError('Failed to generate response. Please try again.')
     } finally {
       setIsGenerating(false)
     }
   }
 
-  const handleCopyResponse = async () => {
+  const handleCopyResponse = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(generatedResponse)
+      await navigator.clipboard.writeText(text)
       setSuccess('Response copied to clipboard!')
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
-      setError('Failed to copy response to clipboard')
+      setError('Failed to copy to clipboard')
     }
   }
 
-  const getRatingColor = (rating: string) => {
-    const numRating = parseInt(rating)
-    if (numRating >= 4) return 'success'
-    if (numRating >= 3) return 'warning'
-    return 'error'
+  const getRatingColor = (rating: string): 'error' | 'warning' | 'info' | 'success' | 'default' => {
+    const colors = {
+      '1': 'error' as const,
+      '2': 'warning' as const,
+      '3': 'info' as const,
+      '4': 'success' as const,
+      '5': 'success' as const
+    }
+    return colors[rating as keyof typeof colors] || 'default'
   }
 
   const formatDate = (date: Date) => {
@@ -229,247 +240,279 @@ export default function Home() {
     }).format(date)
   }
 
-  const getProviderIcon = (provider: string) => {
-    switch (provider) {
-      case 'claude':
-        return '🧠'
-      case 'openai':
-        return '⚡'
-      default:
-        return '🤖'
-    }
-  }
-
-  const getProviderName = (provider: string) => {
-    switch (provider) {
-      case 'claude':
-        return 'Claude'
-      case 'openai':
-        return 'OpenAI'
-      default:
-        return 'AI'
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      
-      <main className="py-8">
-        <Container>
-          {/* Error and Success Messages */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-3">
-              <AlertCircle className="w-5 h-5 text-red-500" />
-              <p className="text-red-700">{error}</p>
-            </div>
-          )}
+    <Container maxWidth="full" padding="lg">
+      <Stack spacing="lg" className="py-8">
+        {/* Page Header */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Generate AI Review Response
+          </h1>
+          <p className="text-muted-foreground">
+            Create professional, contextually appropriate responses to customer reviews
+          </p>
+        </div>
 
-          {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <p className="text-green-700">{success}</p>
-            </div>
-          )}
+        {/* Main Form */}
+        <Grid cols={2} gap="lg">
+          {/* Input Form */}
+          <Card className="p-6">
+            <Stack spacing="md">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground mb-4">
+                  Review Details
+                </h2>
+              </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Input Section */}
-            <div className="space-y-6">
-              <Card>
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5 text-primary-600" />
-                  </div>
+              {/* Review Text */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Review Text *
+                </label>
+                <Input
+                  value={reviewText}
+                  onChange={setReviewText}
+                  placeholder="Paste the customer review here..."
+                  error={formErrors.reviewText}
+                  type="textarea"
+                  rows={4}
+                />
+              </div>
+
+              {/* Rating */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Rating *
+                </label>
+                <Select
+                  value={rating}
+                  onChange={setRating}
+                  options={[
+                    { value: '1', label: '⭐ 1 Star' },
+                    { value: '2', label: '⭐⭐ 2 Stars' },
+                    { value: '3', label: '⭐⭐⭐ 3 Stars' },
+                    { value: '4', label: '⭐⭐⭐⭐ 4 Stars' },
+                    { value: '5', label: '⭐⭐⭐⭐⭐ 5 Stars' }
+                  ]}
+                  placeholder="Select rating"
+                  error={formErrors.rating}
+                />
+              </div>
+
+              {/* Business Type */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Business Type *
+                </label>
+                <Select
+                  value={businessType}
+                  onChange={setBusinessType}
+                  options={businessTypes}
+                  placeholder="Select business type"
+                  error={formErrors.businessType}
+                />
+              </div>
+
+              {/* Response Settings */}
+              <div>
+                <h3 className="text-lg font-medium text-foreground mb-3">
+                  Response Settings
+                </h3>
+                <Grid cols={2} gap="md">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Review Details</h2>
-                    <p className="text-sm text-gray-500">Enter the customer review to generate a response</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <Input
-                    label="Customer Review"
-                    placeholder="Paste the customer review here..."
-                    value={reviewText}
-                    onChange={setReviewText}
-                    type="textarea"
-                    rows={4}
-                    required
-                    error={formErrors.reviewText}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Tone *
+                    </label>
                     <Select
-                      label="Rating"
-                      options={[
-                        { value: '5', label: '⭐⭐⭐⭐⭐ 5 Stars' },
-                        { value: '4', label: '⭐⭐⭐⭐ 4 Stars' },
-                        { value: '3', label: '⭐⭐⭐ 3 Stars' },
-                        { value: '2', label: '⭐⭐ 2 Stars' },
-                        { value: '1', label: '⭐ 1 Star' }
-                      ]}
-                      value={rating}
-                      onChange={setRating}
-                      placeholder="Select rating"
-                      error={formErrors.rating}
-                    />
-
-                    <Select
-                      label="Business Type"
-                      options={businessTypes}
-                      value={businessType}
-                      onChange={setBusinessType}
-                      placeholder="Select business type"
-                      error={formErrors.businessType}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Select
-                      label="Response Tone"
-                      options={tones}
                       value={tone}
                       onChange={setTone}
+                      options={tones}
                       placeholder="Select tone"
                       error={formErrors.tone}
                     />
-
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Length *
+                    </label>
                     <Select
-                      label="Response Length"
-                      options={responseLengths}
                       value={responseLength}
                       onChange={setResponseLength}
+                      options={responseLengths}
                       placeholder="Select length"
                       error={formErrors.responseLength}
                     />
                   </div>
+                </Grid>
+              </div>
 
-                  <Select
-                    label="AI Provider"
-                    options={aiProviders}
-                    value={aiProvider}
-                    onChange={setAiProvider}
-                    placeholder="Select AI provider"
-                  />
+              {/* AI Settings */}
+              <div>
+                <h3 className="text-lg font-medium text-foreground mb-3">
+                  AI Settings
+                </h3>
+                <Grid cols={2} gap="md">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      AI Provider
+                    </label>
+                    <Select
+                      value={aiProvider}
+                      onChange={setAiProvider}
+                      options={aiProviders}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Variations
+                    </label>
+                    <Select
+                      value={variations}
+                      onChange={setVariations}
+                      options={variationOptions}
+                    />
+                  </div>
+                </Grid>
+              </div>
 
+              {/* Generate Button */}
+              <Button
+                onClick={handleGenerateResponse}
+                disabled={isGenerating}
+                className="w-full"
+                size="lg"
+              >
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    Generate Response
+                  </>
+                )}
+              </Button>
+            </Stack>
+          </Card>
+
+          {/* Response Display */}
+          <Card className="p-6">
+            <Stack spacing="md">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground mb-4">
+                  Generated Response
+                </h2>
+              </div>
+
+              {/* Messages */}
+              {error && (
+                <div className="flex items-center p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <AlertCircle className="w-4 h-4 text-destructive mr-2" />
+                  <span className="text-destructive text-sm">{error}</span>
+                </div>
+              )}
+
+              {success && (
+                <div className="flex items-center p-3 bg-green-500/10 border border-green-500/20 rounded-md">
+                  <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                  <span className="text-green-500 text-sm">{success}</span>
+                </div>
+              )}
+
+              {/* Response Variations */}
+              {responseVariations.length > 0 && (
+                <Stack spacing="md">
+                  {responseVariations.map((variation, index) => (
+                    <div
+                      key={variation.id}
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                        selectedVariation === variation.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => setSelectedVariation(variation.id)}
+                    >
+                      <Flex justify="between" align="center" className="mb-2">
+                        <Badge variant="default" className="text-xs">
+                          Variation {index + 1}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            handleCopyResponse(variation.text)
+                          }}
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy
+                        </Button>
+                      </Flex>
+                      <p className="text-foreground text-sm leading-relaxed">
+                        {variation.text}
+                      </p>
+                    </div>
+                  ))}
+                </Stack>
+              )}
+
+              {/* Placeholder */}
+              {responseVariations.length === 0 && !isGenerating && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <MessageSquare className="w-12 h-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">
+                    Fill out the form and click "Generate Response" to create AI-powered review responses.
+                  </p>
+                </div>
+              )}
+
+              {/* Loading State */}
+              {isGenerating && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <RefreshCw className="w-12 h-12 text-primary animate-spin mb-4" />
+                  <p className="text-muted-foreground">
+                    Generating your response...
+                  </p>
+                </div>
+              )}
+            </Stack>
+          </Card>
+        </Grid>
+
+        {/* Recent History */}
+        {responseHistory.length > 0 && (
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold text-foreground mb-4">
+              Recent Responses
+            </h2>
+            <Stack spacing="sm">
+              {responseHistory.slice(0, 5).map((item) => (
+                <div key={item.id} className="flex items-start space-x-3 p-3 border border-border rounded-lg">
+                  <Badge variant={getRatingColor(item.rating)} className="flex-shrink-0">
+                    {item.rating} ⭐
+                  </Badge>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground font-medium line-clamp-2">
+                      {item.review}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDate(item.timestamp)} • {item.businessType} • {item.tone}
+                    </p>
+                  </div>
                   <Button
-                    onClick={handleGenerateResponse}
-                    loading={isGenerating}
-                    disabled={!reviewText || !rating}
-                    className="w-full"
-                    icon={Zap}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopyResponse(item.response)}
                   >
-                    {isGenerating ? 'Generating Response...' : 'Generate Response'}
+                    <Copy className="w-3 h-3" />
                   </Button>
                 </div>
-              </Card>
-
-              {/* Quick Tips */}
-              <Card>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">💡 Quick Tips</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li>• Include specific details from the review for more personalized responses</li>
-                  <li>• Choose the appropriate tone based on your brand voice</li>
-                  <li>• Consider the rating when crafting your response</li>
-                  <li>• Keep responses genuine and authentic to your business</li>
-                  <li>• Use "Auto" to let the system choose the best available AI provider</li>
-                </ul>
-              </Card>
-            </div>
-
-            {/* Output Section */}
-            <div className="space-y-6">
-              <Card>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <MessageSquare className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900">Generated Response</h2>
-                      <p className="text-sm text-gray-500">Your AI-generated response</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {rating && (
-                      <Badge variant={getRatingColor(rating) as any}>
-                        {rating} Star{rating !== '1' ? 's' : ''}
-                      </Badge>
-                    )}
-                    {usedProvider && (
-                      <Badge variant="info" size="sm">
-                        {getProviderIcon(usedProvider)} {getProviderName(usedProvider)}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                {generatedResponse ? (
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <p className="text-gray-800 leading-relaxed">{generatedResponse}</p>
-                    </div>
-                    
-                    <div className="flex space-x-3">
-                      <Button
-                        onClick={handleCopyResponse}
-                        variant="outline"
-                        icon={Copy}
-                        className="flex-1"
-                      >
-                        Copy Response
-                      </Button>
-                      <Button
-                        onClick={handleGenerateResponse}
-                        variant="secondary"
-                        icon={RefreshCw}
-                        disabled={isGenerating}
-                      >
-                        Regenerate
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <MessageSquare className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Response Generated</h3>
-                    <p className="text-gray-500">Fill in the review details and click "Generate Response" to get started.</p>
-                  </div>
-                )}
-              </Card>
-
-              {/* Response History */}
-              <Card>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">📝 Recent Responses</h3>
-                {responseHistory.length > 0 ? (
-                  <div className="space-y-3">
-                    {responseHistory.slice(0, 3).map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Star className="w-4 h-4 text-yellow-500" />
-                          <div>
-                            <span className="text-sm text-gray-700">
-                              {item.rating}-star {item.businessType} review
-                            </span>
-                            <p className="text-xs text-gray-500">{formatDate(item.timestamp)}</p>
-                          </div>
-                        </div>
-                        <Badge variant="primary" size="sm">{item.tone}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 text-sm">No responses generated yet</p>
-                  </div>
-                )}
-              </Card>
-            </div>
-          </div>
-        </Container>
-      </main>
-    </div>
+              ))}
+            </Stack>
+          </Card>
+        )}
+      </Stack>
+    </Container>
   )
 } 

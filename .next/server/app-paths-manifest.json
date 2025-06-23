@@ -1,0 +1,8 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/templates/page": "app/templates/page.js",
+  "/history/page": "app/history/page.js",
+  "/analytics/page": "app/analytics/page.js",
+  "/settings/page": "app/settings/page.js"
+}

@@ -1,3 +1,11 @@
+import { type ClassValue, clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+// Utility function for combining class names
+export const cn = (...inputs: ClassValue[]) => {
+  return twMerge(clsx(inputs))
+}
+
 // Validate Anthropic API key format
 export const validateAnthropicKey = (key: string): boolean => {
   // Anthropic API keys start with 'sk-ant-' and are typically 48 characters long
