@@ -18,8 +18,10 @@ export default function ThemeToggle({
 }: ThemeToggleProps) {
   const [currentTheme, setCurrentTheme] = useState<Theme>('system')
   const [isOpen, setIsOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
     const config = getThemeConfig()
     setCurrentTheme(config.theme)
     
@@ -83,6 +85,15 @@ export default function ThemeToggle({
     sm: 'w-4 h-4',
     md: 'w-5 h-5',
     lg: 'w-6 h-6'
+  }
+
+  // Don't render until mounted to prevent hydration mismatch
+  if (!isMounted) {
+    return (
+      <div className={`${sizeClasses[size]} flex items-center justify-center rounded-lg border border-border bg-background`}>
+        <Monitor className={iconSizes[size]} />
+      </div>
+    )
   }
 
   return (

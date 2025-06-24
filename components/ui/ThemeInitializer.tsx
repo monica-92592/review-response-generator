@@ -1,12 +1,20 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { getThemeConfig, applyTheme, applyAccessibilitySettings } from '@/lib/theme'
 
 export default function ThemeInitializer() {
+  const [isMounted, setIsMounted] = useState(false)
+
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
+
     try {
-      // Initialize theme before page loads to prevent flash
+      // Initialize theme after component mounts to prevent hydration mismatch
       const themeConfig = getThemeConfig()
       const theme = themeConfig.theme || 'system'
       
@@ -38,7 +46,7 @@ export default function ThemeInitializer() {
     } catch (e) {
       console.error('Error initializing theme:', e)
     }
-  }, [])
+  }, [isMounted])
 
   return null
 } 

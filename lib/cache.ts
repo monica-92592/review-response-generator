@@ -9,6 +9,9 @@ interface CacheConfig {
   defaultTTL?: number
 }
 
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined'
+
 class ResponseCache {
   private cache: Map<string, CacheItem<any>>
   private maxSize: number
@@ -19,8 +22,10 @@ class ResponseCache {
     this.maxSize = config.maxSize || 100
     this.defaultTTL = config.defaultTTL || 5 * 60 * 1000 // 5 minutes default
 
-    // Load from localStorage on initialization
-    this.loadFromStorage()
+    // Load from localStorage on initialization only in browser
+    if (isBrowser) {
+      this.loadFromStorage()
+    }
   }
 
   set<T>(key: string, data: T, ttl?: number): void {
@@ -43,7 +48,9 @@ class ResponseCache {
     }
 
     this.cache.set(key, item)
-    this.saveToStorage()
+    if (isBrowser) {
+      this.saveToStorage()
+    }
   }
 
   get<T>(key: string): T | null {
@@ -56,7 +63,9 @@ class ResponseCache {
     // Check if item is expired
     if (Date.now() - item.timestamp > item.ttl) {
       this.cache.delete(key)
-      this.saveToStorage()
+      if (isBrowser) {
+        this.saveToStorage()
+      }
       return null
     }
 
@@ -69,7 +78,7 @@ class ResponseCache {
 
   delete(key: string): boolean {
     const deleted = this.cache.delete(key)
-    if (deleted) {
+    if (deleted && isBrowser) {
       this.saveToStorage()
     }
     return deleted
@@ -77,7 +86,9 @@ class ResponseCache {
 
   clear(): void {
     this.cache.clear()
-    this.saveToStorage()
+    if (isBrowser) {
+      this.saveToStorage()
+    }
   }
 
   size(): number {
@@ -96,6 +107,8 @@ class ResponseCache {
   }
 
   private saveToStorage(): void {
+    if (!isBrowser) return
+    
     try {
       const data = Array.from(this.cache.entries())
       localStorage.setItem('response-cache', JSON.stringify(data))
@@ -105,6 +118,8 @@ class ResponseCache {
   }
 
   private loadFromStorage(): void {
+    if (!isBrowser) return
+    
     try {
       const data = localStorage.getItem('response-cache')
       if (data) {

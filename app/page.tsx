@@ -52,9 +52,11 @@ export default function Home() {
   const [success, setSuccess] = useState<string | null>(null)
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [responseHistory, setResponseHistory] = useState<ResponseHistory[]>([])
+  const [isClient, setIsClient] = useState(false)
 
   // Load response history from localStorage on component mount
   useEffect(() => {
+    setIsClient(true)
     const savedHistory = localStorage.getItem('responseHistory')
     if (savedHistory) {
       try {
@@ -71,8 +73,10 @@ export default function Home() {
 
   // Save response history to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('responseHistory', JSON.stringify(responseHistory))
-  }, [responseHistory])
+    if (isClient) {
+      localStorage.setItem('responseHistory', JSON.stringify(responseHistory))
+    }
+  }, [responseHistory, isClient])
 
   const businessTypes = [
     { value: 'restaurant', label: 'Restaurant & Food' },
@@ -242,31 +246,37 @@ export default function Home() {
 
   return (
     <Container maxWidth="full" padding="lg">
-      <Stack spacing="lg" className="py-8">
+      <Stack spacing="xl" className="py-8">
         {/* Page Header */}
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Generate AI Review Response
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+            <MessageSquare className="w-8 h-8 text-primary" />
+          </div>
+          <h1 className="text-4xl font-bold text-foreground bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            AI Review Response Generator
           </h1>
-          <p className="text-muted-foreground">
-            Create professional, contextually appropriate responses to customer reviews
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Create professional, contextually appropriate responses to customer reviews with AI-powered assistance
           </p>
         </div>
 
         {/* Main Form */}
-        <Grid cols={2} gap="lg">
+        <Grid cols={2} gap="xl">
           {/* Input Form */}
-          <Card className="p-6">
-            <Stack spacing="md">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground mb-4">
+          <Card className="p-8" hover>
+            <Stack spacing="lg">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold text-foreground">
                   Review Details
                 </h2>
+                <p className="text-muted-foreground">
+                  Provide the customer review and your preferences
+                </p>
               </div>
 
               {/* Review Text */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-foreground">
                   Review Text *
                 </label>
                 <Input
@@ -275,13 +285,13 @@ export default function Home() {
                   placeholder="Paste the customer review here..."
                   error={formErrors.reviewText}
                   type="textarea"
-                  rows={4}
+                  rows={5}
                 />
               </div>
 
               {/* Rating */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-foreground">
                   Rating *
                 </label>
                 <Select
@@ -300,8 +310,8 @@ export default function Home() {
               </div>
 
               {/* Business Type */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-foreground">
                   Business Type *
                 </label>
                 <Select
@@ -314,13 +324,18 @@ export default function Home() {
               </div>
 
               {/* Response Settings */}
-              <div>
-                <h3 className="text-lg font-medium text-foreground mb-3">
-                  Response Settings
-                </h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Response Settings
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Customize the tone and length of your response
+                  </p>
+                </div>
                 <Grid cols={2} gap="md">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-foreground">
                       Tone *
                     </label>
                     <Select
@@ -331,8 +346,8 @@ export default function Home() {
                       error={formErrors.tone}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-foreground">
                       Length *
                     </label>
                     <Select
@@ -347,13 +362,18 @@ export default function Home() {
               </div>
 
               {/* AI Settings */}
-              <div>
-                <h3 className="text-lg font-medium text-foreground mb-3">
-                  AI Settings
-                </h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    AI Settings
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Choose your preferred AI provider and number of variations
+                  </p>
+                </div>
                 <Grid cols={2} gap="md">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-foreground">
                       AI Provider
                     </label>
                     <Select
@@ -362,8 +382,8 @@ export default function Home() {
                       options={aiProviders}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-foreground">
                       Variations
                     </label>
                     <Select
@@ -379,17 +399,17 @@ export default function Home() {
               <Button
                 onClick={handleGenerateResponse}
                 disabled={isGenerating}
-                className="w-full"
+                className="w-full h-12 text-base font-semibold"
                 size="lg"
               >
                 {isGenerating ? (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
+                    <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                    Generating Response...
                   </>
                 ) : (
                   <>
-                    <Zap className="w-4 h-4 mr-2" />
+                    <Zap className="w-5 h-5 mr-2" />
                     Generate Response
                   </>
                 )}
@@ -398,26 +418,29 @@ export default function Home() {
           </Card>
 
           {/* Response Display */}
-          <Card className="p-6">
-            <Stack spacing="md">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground mb-4">
+          <Card className="p-8" hover>
+            <Stack spacing="lg">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold text-foreground">
                   Generated Response
                 </h2>
+                <p className="text-muted-foreground">
+                  Choose from multiple AI-generated variations
+                </p>
               </div>
 
               {/* Messages */}
               {error && (
-                <div className="flex items-center p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                  <AlertCircle className="w-4 h-4 text-destructive mr-2" />
-                  <span className="text-destructive text-sm">{error}</span>
+                <div className="flex items-center p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-destructive mr-3 flex-shrink-0" />
+                  <span className="text-destructive font-medium">{error}</span>
                 </div>
               )}
 
               {success && (
-                <div className="flex items-center p-3 bg-green-500/10 border border-green-500/20 rounded-md">
-                  <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                  <span className="text-green-500 text-sm">{success}</span>
+                <div className="flex items-center p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
+                  <span className="text-green-500 font-medium">{success}</span>
                 </div>
               )}
 
@@ -427,25 +450,32 @@ export default function Home() {
                   {responseVariations.map((variation, index) => (
                     <div
                       key={variation.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                      className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
                         selectedVariation === variation.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
+                          ? 'border-primary bg-primary/5 shadow-md'
+                          : 'border-border hover:border-primary/50 hover:shadow-md'
                       }`}
                       onClick={() => setSelectedVariation(variation.id)}
                     >
-                      <Flex justify="between" align="center" className="mb-2">
-                        <Badge variant="default" className="text-xs">
-                          Variation {index + 1}
-                        </Badge>
+                      <Flex justify="between" align="center" className="mb-4">
+                        <div className="flex items-center space-x-3">
+                          <Badge variant="default" className="text-xs font-semibold">
+                            Variation {index + 1}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {variation.provider}
+                          </span>
+                        </div>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation()
                             handleCopyResponse(variation.text)
                           }}
+                          className="hover:bg-primary hover:text-primary-foreground"
                         >
-                          <Copy className="w-3 h-3 mr-1" />
+                          <Copy className="w-4 h-4 mr-1" />
                           Copy
                         </Button>
                       </Flex>
@@ -459,9 +489,14 @@ export default function Home() {
 
               {/* Placeholder */}
               {responseVariations.length === 0 && !isGenerating && (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <MessageSquare className="w-12 h-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                    <MessageSquare className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Ready to Generate
+                  </h3>
+                  <p className="text-muted-foreground max-w-sm">
                     Fill out the form and click "Generate Response" to create AI-powered review responses.
                   </p>
                 </div>
@@ -469,10 +504,15 @@ export default function Home() {
 
               {/* Loading State */}
               {isGenerating && (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <RefreshCw className="w-12 h-12 text-primary animate-spin mb-4" />
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                    <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Generating Response
+                  </h3>
                   <p className="text-muted-foreground">
-                    Generating your response...
+                    Our AI is crafting the perfect response for you...
                   </p>
                 </div>
               )}
@@ -482,30 +522,40 @@ export default function Home() {
 
         {/* Recent History */}
         {responseHistory.length > 0 && (
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold text-foreground mb-4">
-              Recent Responses
-            </h2>
-            <Stack spacing="sm">
+          <Card className="p-8" hover>
+            <div className="space-y-2 mb-6">
+              <h2 className="text-2xl font-semibold text-foreground">
+                Recent Responses
+              </h2>
+              <p className="text-muted-foreground">
+                Your recently generated review responses
+              </p>
+            </div>
+            <Stack spacing="md">
               {responseHistory.slice(0, 5).map((item) => (
-                <div key={item.id} className="flex items-start space-x-3 p-3 border border-border rounded-lg">
+                <div key={item.id} className="flex items-start space-x-4 p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
                   <Badge variant={getRatingColor(item.rating)} className="flex-shrink-0">
                     {item.rating} ⭐
                   </Badge>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground font-medium line-clamp-2">
+                    <p className="text-sm text-foreground font-medium line-clamp-2 mb-1">
                       {item.review}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDate(item.timestamp)} • {item.businessType} • {item.tone}
-                    </p>
+                    <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                      <span>{formatDate(item.timestamp)}</span>
+                      <span>•</span>
+                      <span className="capitalize">{item.businessType}</span>
+                      <span>•</span>
+                      <span className="capitalize">{item.tone}</span>
+                    </div>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleCopyResponse(item.response)}
+                    className="flex-shrink-0 hover:bg-primary hover:text-primary-foreground"
                   >
-                    <Copy className="w-3 h-3" />
+                    <Copy className="w-4 h-4" />
                   </Button>
                 </div>
               ))}

@@ -1,4 +1,5 @@
 import React from 'react'
+import { cn } from '@/lib/utils'
 
 interface CardProps {
   children: React.ReactNode
@@ -6,6 +7,7 @@ interface CardProps {
   padding?: 'none' | 'sm' | 'md' | 'lg'
   shadow?: 'none' | 'sm' | 'md' | 'lg'
   border?: boolean
+  hover?: boolean
 }
 
 export default function Card({
@@ -13,7 +15,8 @@ export default function Card({
   className = '',
   padding = 'md',
   shadow = 'md',
-  border = true
+  border = true,
+  hover = false
 }: CardProps) {
   const paddingClasses = {
     none: '',
@@ -29,10 +32,18 @@ export default function Card({
     lg: 'shadow-lg'
   }
   
-  const borderClasses = border ? 'border border-gray-200' : ''
+  const borderClasses = border ? 'border border-border' : ''
+  const hoverClasses = hover ? 'transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5' : ''
 
   return (
-    <div className={`bg-white rounded-lg ${paddingClasses[padding]} ${shadowClasses[shadow]} ${borderClasses} ${className}`}>
+    <div className={cn(
+      'bg-card text-card-foreground rounded-xl',
+      paddingClasses[padding],
+      shadowClasses[shadow],
+      borderClasses,
+      hoverClasses,
+      className
+    )}>
       {children}
     </div>
   )

@@ -47,8 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: 'Templates', href: '/templates', icon: FileText },
     { name: 'History', href: '/history', icon: History },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Settings', href: '/settings', icon: Settings },
-    { name: 'Help', href: '/help', icon: HelpCircle }
+    { name: 'Settings', href: '/settings', icon: Settings }
   ];
 
   const quickActions = [
@@ -63,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Backdrop for mobile */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -74,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         'fixed left-0 top-0 z-50 h-full w-64',
         'bg-background border-r border-border',
         'transform transition-transform duration-300 ease-in-out',
-        'lg:translate-x-0 lg:static lg:z-auto',
+        'md:translate-x-0 md:static md:z-auto',
         isOpen ? 'translate-x-0' : '-translate-x-full',
         className
       )}>
@@ -89,12 +88,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="lg:hidden p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="md:hidden p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
               aria-label="Close sidebar"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -107,20 +104,25 @@ const Sidebar: React.FC<SidebarProps> = ({
               {navigation.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <a
+                  <Link
                     key={item.name}
                     href={item.href}
-                    className={`
-                      flex items-center px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors
-                      ${isActive(item.href)
+                    className={cn(
+                      'flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                      isActive(item.href)
                         ? 'bg-primary text-primary-foreground shadow-sm'
-                        : ''
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    )}
+                    onClick={() => {
+                      // Close sidebar on mobile after navigation
+                      if (window.innerWidth < 768) {
+                        onClose?.()
                       }
-                    `}
+                    }}
                   >
                     <Icon className="mr-3 h-5 w-5" />
                     {item.name}
-                  </a>
+                  </Link>
                 );
               })}
             </div>
@@ -132,20 +134,25 @@ const Sidebar: React.FC<SidebarProps> = ({
               {quickActions.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <a
+                  <Link
                     key={item.name}
                     href={item.href}
-                    className={`
-                      flex items-center px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors
-                      ${isActive(item.href)
+                    className={cn(
+                      'flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                      isActive(item.href)
                         ? 'bg-primary text-primary-foreground shadow-sm'
-                        : ''
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    )}
+                    onClick={() => {
+                      // Close sidebar on mobile after navigation
+                      if (window.innerWidth < 768) {
+                        onClose?.()
                       }
-                    `}
+                    }}
                   >
                     <Icon className="mr-3 h-5 w-5" />
                     {item.name}
-                  </a>
+                  </Link>
                 );
               })}
             </div>
