@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 import { Menu } from 'lucide-react'
 import Button from './Button'
+import { cn } from '@/lib/utils'
 
 interface ClientLayoutProps {
   children: React.ReactNode
@@ -11,6 +13,8 @@ interface ClientLayoutProps {
 
 export default function ClientLayout({ children }: ClientLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const pathname = usePathname()
 
   // Close sidebar on mobile when window resizes to desktop
   useEffect(() => {
@@ -24,6 +28,13 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false)
+    }
+  }, [pathname])
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen)
   }
@@ -32,12 +43,54 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
     setIsSidebarOpen(false)
   }
 
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed)
+  }
+
+  // Get page title based on current route
+  const getPageTitle = () => {
+    switch (pathname) {
+      case '/':
+        return 'Generate Response'
+      case '/templates':
+        return 'Templates'
+      case '/history':
+        return 'Response History'
+      case '/analytics':
+        return 'Analytics Dashboard'
+      case '/settings':
+        return 'Settings'
+      default:
+        return 'AI Review Response Generator'
+    }
+  }
+
+  // Get page description based on current route
+  const getPageDescription = () => {
+    switch (pathname) {
+      case '/':
+        return 'Create AI-powered responses to customer reviews'
+      case '/templates':
+        return 'Manage and organize response templates'
+      case '/history':
+        return 'View and manage your response history'
+      case '/analytics':
+        return 'Track performance and business intelligence'
+      case '/settings':
+        return 'Configure your preferences and settings'
+      default:
+        return 'AI-powered review response generator'
+    }
+  }
+
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <Sidebar 
         isOpen={isSidebarOpen} 
-        onClose={closeSidebar} 
+        onClose={closeSidebar}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapse}
       />
 
       {/* Main Content */}
@@ -55,11 +108,14 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
             <Menu className="w-4 h-4" />
           </Button>
 
-          {/* Page title - hidden on mobile when sidebar is open */}
+          {/* Page title and description */}
           <div className={`flex-1 text-center ${isSidebarOpen ? 'hidden md:block' : ''}`}>
             <h1 className="text-lg font-semibold text-foreground">
-              Review Response Generator
+              {getPageTitle()}
             </h1>
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              {getPageDescription()}
+            </p>
           </div>
 
           {/* Right side - empty for now, can be used for page-specific actions */}
@@ -67,7 +123,11 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         </div>
 
         {/* Main content area */}
-        <main id="main-content" className="flex-1 overflow-auto">
+        <main 
+          id="main-content" 
+          className="flex-1 overflow-auto focus:outline-none"
+          tabIndex={-1}
+        >
           {children}
         </main>
       </div>
